@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+.DS_Store
+.agentforge.local.md
+apps/web/client/dist/
+apps/desktop/src-tauri/target/
+*.tsbuildinfo

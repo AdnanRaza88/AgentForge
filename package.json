@@ -1,0 +1,31 @@
+{
+  "name": "agentforge-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AgentForge - open source terminal-first AI coding agent",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/core && npm run build -w apps/cli && npm run build -w apps/web",
+    "build:core": "npm run build -w packages/core",
+    "cli": "npm run build:core && npm run start -w apps/cli",
+    "dev:cli": "npm run start -w apps/cli",
+    "dev:web": "npm run dev -w apps/web",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "prettier": "^3.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
