@@ -14,8 +14,14 @@ export interface Settings {
   thinking: "on" | "off";
   permissions: Record<string, "allow" | "ask" | "deny">;
   hooks: Record<string, string[]>;
-  mcpServers: Record<string, { command: string; args?: string[] }>;
+  mcpServers: Record<
+    string,
+    { command: string; args?: string[]; env?: Record<string, string> }
+  >;
+  mcpCatalogEnabled: string[];
   rules: string[];
+  customBaseURL?: string;
+  customProviderLabel?: string;
 }
 
 const DEFAULTS: Settings = {
@@ -31,6 +37,7 @@ const DEFAULTS: Settings = {
   },
   hooks: {},
   mcpServers: {},
+  mcpCatalogEnabled: [],
   rules: [],
 };
 
