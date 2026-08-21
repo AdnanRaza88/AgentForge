@@ -1,7 +1,7 @@
 /**
- * Provider-agnostic LLM types. Every provider adapter (Anthropic, OpenAI,
- * Gemini, Groq, OpenRouter, Ollama, ...) implements `LLMProvider` and returns
- * these shapes so the rest of the core never branches on provider identity.
+ * Provider-agnostic LLM types.
+ * Every adapter implements `LLMProvider` so the rest of the core never
+ * branches on provider identity.
  */
 
 export interface ToolSchema {
@@ -43,5 +43,16 @@ export interface LLMResponse {
 export interface LLMProvider {
   id: string;
   label: string;
+  supportsTools?: boolean;
   chat(params: ChatParams): Promise<LLMResponse>;
+}
+
+export interface ModelInfo {
+  id: string;
+  label: string;
+  provider: string;
+  inputPer1M?: number;
+  outputPer1M?: number;
+  contextWindow?: number;
+  free?: boolean;
 }
