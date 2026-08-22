@@ -1,17 +1,31 @@
-# AgentForge — Providers
+# AgentForge — Providers (v2)
 
-AgentForge is provider-agnostic. Configure via `.env` or `/config`.
+Provider-agnostic by design. Configure via `.env` + `/config`.
 
 ## Supported
 
-| Provider     | Env key              | Notes                          |
-|--------------|----------------------|--------------------------------|
-| Anthropic    | ANTHROPIC_API_KEY    | Claude models                  |
-| OpenAI       | OPENAI_API_KEY       | GPT-4o, o1, etc.               |
-| Gemini       | GEMINI_API_KEY       | Free tier available            |
-| Groq         | GROQ_API_KEY         | Fast inference                 |
-| OpenRouter   | OPENROUTER_API_KEY   | Many models via one key        |
-| Ollama       | OLLAMA_BASE_URL      | Local, no key needed           |
-| OpenAI-compat| any base URL + key   | Any OpenAI-compatible endpoint |
+| Provider    | Env key            | Tools | Notes |
+|-------------|--------------------|-------|-------|
+| Anthropic   | `ANTHROPIC_API_KEY`| ✅    | Full tool_use / tool_result multi-turn |
+| OpenAI      | `OPENAI_API_KEY`   | ✅    | GPT-4o family |
+| Gemini      | `GEMINI_API_KEY`   | ✅    | Free tier; function calling |
+| Groq        | `GROQ_API_KEY`     | ✅    | Fast open models |
+| DeepSeek    | `DEEPSEEK_API_KEY` | ✅    | Strong coding + reasoner |
+| OpenRouter  | `OPENROUTER_API_KEY`| ✅   | Many models, some free |
+| Ollama      | `OLLAMA_BASE_URL`  | ✅    | Local, no key |
+| OpenCode Zen| `OPENCODE_API_KEY` | ✅    | Curated coding models |
+| Custom      | any base URL + key | ✅    | `createCustomProvider()` |
 
-See `packages/core/src/providers/` for implementation.
+## Defaults
+
+See `packages/core/src/providers/models.ts`.
+
+## Usage
+
+```ts
+import { createProvider, defaultModelFor } from "@agentforge/core";
+
+const provider = createProvider("deepseek");
+const model = defaultModelFor("deepseek");
+const res = await provider.chat({ model, messages: [...] });
+```
