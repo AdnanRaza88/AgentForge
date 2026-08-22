@@ -16,11 +16,6 @@ export interface Tool {
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
-/**
- * Central place tools register themselves. The AgentLoop asks this registry
- * for the tool schemas to send to the LLM, and for the executor when a tool
- * call comes back.
- */
 export class ToolRegistry {
   private tools = new Map<string, Tool>();
 
