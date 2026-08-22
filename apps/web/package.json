@@ -1,10 +1,10 @@
 {
   "name": "@agentforge/web",
   "version": "0.1.0",
-  "private": true,
+  "description": "AgentForge Web UI - sessions, settings, providers, MCP, subagents",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev": "concurrently \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "tsx watch server/index.ts",
     "dev:client": "vite --config client/vite.config.ts",
     "build": "vite build --config client/vite.config.ts && tsc -p server/tsconfig.json",
