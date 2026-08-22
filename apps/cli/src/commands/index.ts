@@ -38,7 +38,10 @@ export function registerAllCommands(): SlashCommand[] {
       const lines = commands
         .concat(helpCommandSelfRef)
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map((c) => `  ${chalk.cyan(`/${c.name}`.padEnd(16))} ${c.description}`);
+        .map(
+          (c) =>
+            `  ${chalk.cyan(`/${c.name}`.padEnd(16))} ${c.description}`,
+        );
       return {
         output:
           chalk.bold("AgentForge commands:\n") +
@@ -49,7 +52,7 @@ export function registerAllCommands(): SlashCommand[] {
       };
     },
   };
-  const helpCommandSelfRef = helpCommand; // included so /help lists itself too
+  const helpCommandSelfRef = helpCommand;
 
   commands.push(helpCommand);
   return commands;

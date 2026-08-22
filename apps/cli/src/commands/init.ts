@@ -4,7 +4,8 @@ import type { SlashCommand } from "./types.js";
 
 export const initCommand: SlashCommand = {
   name: "init",
-  description: "Scan the project and generate .agentforge/AGENTFORGE.md project memory",
+  description:
+    "Scan the project and generate .agentforge/AGENTFORGE.md project memory",
   async run(_args, state) {
     if (state.memory.projectMemoryExists()) {
       return {

@@ -1,5 +1,9 @@
 import chalk from "chalk";
-import { saveProjectSettings, AVAILABLE_PROVIDERS, createProvider } from "@agentforge/core";
+import {
+  saveProjectSettings,
+  AVAILABLE_PROVIDERS,
+  createProvider,
+} from "@agentforge/core";
 import type { SlashCommand } from "./types.js";
 
 export const configCommand: SlashCommand = {
@@ -11,7 +15,8 @@ export const configCommand: SlashCommand = {
 
     if (parts.length === 0) {
       const providerLines = AVAILABLE_PROVIDERS.map(
-        (p) => `  ${p.id === state.settings.provider ? chalk.green("●") : " "} ${p.id}${p.free ? chalk.gray(" (free/local option)") : ""}`,
+        (p) =>
+          `  ${p.id === state.settings.provider ? chalk.green("●") : " "} ${p.id}${p.free ? chalk.gray(" (free/local option)") : ""}`,
       ).join("\n");
       return {
         output:
@@ -30,7 +35,11 @@ export const configCommand: SlashCommand = {
         const newProvider = createProvider(value as any);
         state.settings.provider = value;
         saveProjectSettings(state.cwd, { provider: value });
-        return { output: chalk.green(`Provider switched to "${newProvider.label}". Restart or continue — new turns will use it.`) };
+        return {
+          output: chalk.green(
+            `Provider switched to "${newProvider.label}". Restart or continue — new turns will use it.`,
+          ),
+        };
       } catch (err) {
         return { output: chalk.red((err as Error).message) };
       }
@@ -43,7 +52,8 @@ export const configCommand: SlashCommand = {
     }
 
     if (key === "thinking") {
-      if (value !== "on" && value !== "off") return { output: chalk.red("Usage: /config thinking <on|off>") };
+      if (value !== "on" && value !== "off")
+        return { output: chalk.red("Usage: /config thinking <on|off>") };
       state.settings.thinking = value;
       saveProjectSettings(state.cwd, { thinking: value });
       return { output: chalk.green(`Thinking set to "${value}".`) };
@@ -55,23 +65,40 @@ export const configCommand: SlashCommand = {
 
 export const permissionCommand: SlashCommand = {
   name: "permission",
-  description: "View or set tool permissions. Usage: /permission  |  /permission <tool> <allow|ask|deny>",
+  description:
+    "View or set tool permissions. Usage: /permission  |  /permission <tool> <allow|ask|deny>",
   async run(args, state) {
     const parts = args.trim().split(/\s+/).filter(Boolean);
 
     if (parts.length === 0) {
-      const lines = Object.entries(state.settings.permissions).map(([k, v]) => `  ${k}: ${colorForDecision(v)}`);
-      return { output: chalk.bold("Current permissions:\n") + lines.join("\n") };
+      const lines = Object.entries(state.settings.permissions).map(
+        ([k, v]) => `  ${k}: ${colorForDecision(v)}`,
+      );
+      return {
+        output: chalk.bold("Current permissions:\n") + lines.join("\n"),
+      };
     }
 
     const [tool, decision] = parts;
     if (!["allow", "ask", "deny"].includes(decision)) {
-      return { output: chalk.red("Usage: /permission <tool> <allow|ask|deny>") };
+      return {
+        output: chalk.red("Usage: /permission <tool> <allow|ask|deny>"),
+      };
     }
 
-    state.permissions.updatePermission(tool, decision as "allow" | "ask" | "deny");
-    saveProjectSettings(state.cwd, { permissions: { ...state.settings.permissions, [tool]: decision } as any });
-    return { output: chalk.green(`Permission for "${tool}" set to "${decision}".`) };
+    state.permissions.updatePermission(
+      tool,
+      decision as "allow" | "ask" | "deny",
+    );
+    saveProjectSettings(state.cwd, {
+      permissions: {
+        ...state.settings.permissions,
+        [tool]: decision,
+      } as any,
+    });
+    return {
+      output: chalk.green(`Permission for "${tool}" set to "${decision}".`),
+    };
   },
 };
 
