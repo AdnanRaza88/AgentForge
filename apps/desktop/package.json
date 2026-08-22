@@ -1,7 +1,7 @@
 {
   "name": "@agentforge/desktop",
   "version": "0.1.0",
-  "description": "AgentForge Desktop - Tauri wrapper around apps/web for Windows .exe distribution",
+  "description": "AgentForge Desktop - Tauri wrapper around apps/web",
   "private": true,
   "scripts": {
     "tauri": "tauri",

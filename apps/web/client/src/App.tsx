@@ -28,20 +28,36 @@ export default function App() {
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "system-ui, sans-serif" }}>
-      <aside style={{ width: 280, borderRight: "1px solid #222", padding: 16, overflow: "auto" }}>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        fontFamily: "system-ui, sans-serif",
+        background: "#fafafa",
+        color: "#1a1a1a",
+      }}
+    >
+      <aside
+        style={{
+          width: 280,
+          borderRight: "1px solid #e5e5e5",
+          padding: 16,
+          overflow: "auto",
+          background: "#fff",
+        }}
+      >
         <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>AgentForge</h2>
-        <p style={{ color: "#888", fontSize: 13 }}>Sessions</p>
-        {error && <p style={{ color: "#f66" }}>{error}</p>}
+        <p style={{ color: "#666", fontSize: 13 }}>Sessions</p>
+        {error && <p style={{ color: "#c00" }}>{error}</p>}
         <ul style={{ listStyle: "none", padding: 0 }}>
           {sessions.map((s) => (
             <li key={s.id}>
               <button
                 onClick={() => loadSession(s.id)}
                 style={{
-                  background: selected?.id === s.id ? "#1a1f2e" : "transparent",
+                  background: selected?.id === s.id ? "#f0f4ff" : "transparent",
                   border: "none",
-                  color: "#e6e6e6",
+                  color: "#1a1a1a",
                   textAlign: "left",
                   width: "100%",
                   padding: "8px 10px",
@@ -50,22 +66,33 @@ export default function App() {
                 }}
               >
                 <div style={{ fontWeight: 600 }}>{s.name || s.id}</div>
-                <div style={{ fontSize: 11, color: "#888" }}>{s.mode} · {new Date(s.updatedAt).toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: "#888" }}>
+                  {s.mode} · {new Date(s.updatedAt).toLocaleString()}
+                </div>
               </button>
             </li>
           ))}
         </ul>
       </aside>
       <main style={{ flex: 1, padding: 24, overflow: "auto" }}>
-        {!selected && <p style={{ color: "#888" }}>Select a session to inspect messages & todos.</p>}
+        {!selected && (
+          <p style={{ color: "#888" }}>
+            Select a session to inspect messages & todos.
+          </p>
+        )}
         {selected && (
           <>
             <h3 style={{ marginTop: 0 }}>{selected.name || selected.id}</h3>
-            <p style={{ color: "#888", fontSize: 13 }}>{selected.cwd} · {selected.provider}/{selected.model}</p>
+            <p style={{ color: "#888", fontSize: 13 }}>
+              {selected.cwd} · {selected.provider}/{selected.model}
+            </p>
             <h4>Todos</h4>
             <ul>
               {(selected.todos || []).map((t: any, i: number) => (
-                <li key={i} style={{ color: t.status === "done" ? "#6c6" : "#ccc" }}>
+                <li
+                  key={i}
+                  style={{ color: t.status === "done" ? "#080" : "#333" }}
+                >
                   {t.status === "done" ? "✓" : "○"} {t.text}
                 </li>
               ))}
@@ -73,9 +100,29 @@ export default function App() {
             <h4>Messages ({selected.messages?.length || 0})</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {(selected.messages || []).map((m: any, i: number) => (
-                <div key={i} style={{ background: "#12151c", padding: 12, borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, color: "#888", marginBottom: 4 }}>{m.role}</div>
-                  <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 13 }}>{m.content}</pre>
+                <div
+                  key={i}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e5e5e5",
+                    padding: 12,
+                    borderRadius: 8,
+                  }}
+                >
+                  <div
+                    style={{ fontSize: 11, color: "#888", marginBottom: 4 }}
+                  >
+                    {m.role}
+                  </div>
+                  <pre
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      margin: 0,
+                      fontSize: 13,
+                    }}
+                  >
+                    {m.content}
+                  </pre>
                 </div>
               ))}
             </div>
