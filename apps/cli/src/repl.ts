@@ -7,7 +7,7 @@ import {
   ToolRegistry,
   PermissionEngine,
   HookEngine,
-  AgentLoop,
+  AgentHarness,
   SessionStore,
   TodoStore,
   createTodoTool,
@@ -20,6 +20,11 @@ import {
   runBash,
   gitTool,
   McpClientManager,
+  resolveMcpServers,
+  compileSystemStack,
+  SubagentOrchestrator,
+  createSpawnSubagentTool,
+  createRegisterSubagentTool,
   type Session,
   type ProviderId,
   type Settings,
@@ -35,7 +40,7 @@ export interface ReplState {
   memory: MemoryManager;
   tools: ToolRegistry;
   permissions: PermissionEngine;
-  agentLoop: AgentLoop;
+  agentLoop: AgentHarness;
   todoStore: TodoStore;
   mcp: McpClientManager;
   rl: readline.Interface;
@@ -52,48 +57,92 @@ export async function startRepl(opts: StartReplOptions): Promise<void> {
   const settings = loadSettings(cwd);
   const memory = new MemoryManager(cwd);
 
-  console.log(chalk.bold.cyan("\n  AgentForge") + chalk.gray(" — open source terminal AI coding agent\n"));
+  console.log(
+    chalk.bold.cyan("\n  AgentForge") +
+      chalk.gray(" — open source terminal AI coding agent\n"),
+  );
 
   let provider;
   try {
-    provider = createProvider(settings.provider as ProviderId);
+    const env = { ...process.env };
+    if (settings.customBaseURL) env.CUSTOM_BASE_URL = settings.customBaseURL;
+    if (settings.customProviderLabel)
+      env.CUSTOM_PROVIDER_LABEL = settings.customProviderLabel;
+    provider = createProvider(settings.provider as ProviderId, env);
   } catch (err) {
     console.log(chalk.red(`Provider error: ${(err as Error).message}`));
-    console.log(chalk.gray("Set your API key in .env, or run /config to pick a different provider (e.g. ollama needs no key).\n"));
+    console.log(
+      chalk.gray(
+        "Set your API key in .env, or run /config to pick a different provider (e.g. ollama needs no key).\n",
+      ),
+    );
     process.exit(1);
   }
 
   const session: Session =
     (opts.resumeSessionId && SessionStore.load(opts.resumeSessionId)) ||
-    SessionStore.create(cwd, settings.provider, settings.model, opts.initialMode);
+    SessionStore.create(
+      cwd,
+      settings.provider,
+      settings.model,
+      opts.initialMode,
+    );
 
   if (opts.resumeSessionId) {
-    console.log(chalk.gray(`Resumed session ${session.id}${session.name ? ` ("${session.name}")` : ""}\n`));
+    console.log(
+      chalk.gray(
+        `Resumed session ${session.id}${session.name ? ` ("${session.name}")` : ""}\n`,
+      ),
+    );
   }
 
   const todoStore = new TodoStore(session.todos);
   const tools = new ToolRegistry();
-  [readFileTool, writeFileTool, deleteFileTool, listDirTool, bashTool, gitTool, createTodoTool(todoStore), createTodoUpdateTool(todoStore)].forEach(
-    (t) => tools.register(t),
-  );
+  [
+    readFileTool,
+    writeFileTool,
+    deleteFileTool,
+    listDirTool,
+    bashTool,
+    gitTool,
+    createTodoTool(todoStore),
+    createTodoUpdateTool(todoStore),
+  ].forEach((t) => tools.register(t));
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-
-  const permissions = new PermissionEngine(settings, async (req) => {
-    return askYesNo(rl, `\n${chalk.yellow("Permission requested:")} ${req.description}\nAllow? (y/N) `);
+  const permissions = new PermissionEngine(settings.permissions, async (req) => {
+    console.log(
+      chalk.yellow(
+        `\nPermission requested: ${req.toolName}\n  ${req.description}\n`,
+      ),
+    );
+    return askYesNo(rl, "Allow? [y/N] ");
   });
 
-  const hooks = new HookEngine(settings.hooks, { cwd });
+  const hooks = new HookEngine();
+  const subagents = new SubagentOrchestrator(
+    cwd,
+    provider,
+    settings.model,
+    tools,
+    permissions,
+  );
+  tools.register(createSpawnSubagentTool(subagents));
+  tools.register(createRegisterSubagentTool(subagents));
 
   const mcp = new McpClientManager();
-  if (Object.keys(settings.mcpServers).length > 0) {
+  const mcpConfig = resolveMcpServers(
+    settings.mcpCatalogEnabled ?? [],
+    settings.mcpServers ?? {},
+  );
+  if (Object.keys(mcpConfig).length > 0) {
     console.log(chalk.gray("Connecting MCP servers..."));
-    const mcpTools = await mcp.connectAll(settings.mcpServers);
+    const mcpTools = await mcp.connectAll(mcpConfig);
     mcpTools.forEach((t) => tools.register(t));
-    if (mcpTools.length) console.log(chalk.gray(`  → ${mcpTools.length} MCP tool(s) available\n`));
+    if (mcpTools.length)
+      console.log(chalk.gray(`  → ${mcpTools.length} MCP tool(s) available\n`));
   }
 
-  const agentLoop = new AgentLoop({
+  const agentLoop = new AgentHarness({
     cwd,
     provider,
     model: settings.model,
@@ -102,9 +151,27 @@ export async function startRepl(opts: StartReplOptions): Promise<void> {
     hooks,
     mode: session.mode,
     ignorePatterns: memory.loadIgnorePatterns(),
+    sessionId: session.id,
   });
 
-  const state: ReplState = { cwd, settings, session, memory, tools, permissions, agentLoop, todoStore, mcp, rl };
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
+  });
+
+  const state: ReplState = {
+    cwd,
+    settings,
+    session,
+    memory,
+    tools,
+    permissions,
+    agentLoop,
+    todoStore,
+    mcp,
+    rl,
+  };
   const commands = registerAllCommands();
 
   printModeHint(state);
@@ -122,7 +189,10 @@ export async function startRepl(opts: StartReplOptions): Promise<void> {
     if (line.startsWith("!")) {
       const command = line.slice(1).trim();
       console.log(chalk.gray(`$ ${command}`));
-      const result = await runBash(command, { cwd, onTerminalOutput: (o) => agentLoop.recordTerminalOutput(o) });
+      const result = await runBash(command, {
+        cwd,
+        onTerminalOutput: (o) => agentLoop.recordTerminalOutput(o),
+      });
       console.log(result.output || chalk.gray("(no output)"));
       if (result.error) console.log(chalk.red(result.error));
       rl.prompt();
@@ -146,7 +216,9 @@ export async function startRepl(opts: StartReplOptions): Promise<void> {
           return;
         }
       } else {
-        console.log(chalk.red(`Unknown command: /${cmdName}. Type /help for a list.`));
+        console.log(
+          chalk.red(`Unknown command: /${cmdName}. Type /help for a list.`),
+        );
       }
       rl.prompt();
       return;
@@ -158,22 +230,55 @@ export async function startRepl(opts: StartReplOptions): Promise<void> {
 
   rl.on("close", () => {
     SessionStore.save(state.session);
-    console.log(chalk.gray("\nSession saved. Resume anytime with `agentforge -r`. Goodbye!\n"));
+    console.log(
+      chalk.gray(
+        "\nSession saved. Resume anytime with `agentforge -r`. Goodbye!\n",
+      ),
+    );
     mcp.disconnectAll().finally(() => process.exit(0));
   });
 }
 
-async function handleUserMessage(state: ReplState, input: string): Promise<void> {
+async function handleUserMessage(
+  state: ReplState,
+  input: string,
+): Promise<void> {
   const { session, agentLoop } = state;
   process.stdout.write(chalk.gray("\nthinking...\n"));
 
   try {
-    const result = await agentLoop.runTurn(input, session.messages, buildSystemPrompt(state));
+    const result = await agentLoop.runTurn(
+      input,
+      session.messages,
+      buildSystemPrompt(state),
+    );
     session.messages.push(...result.messages);
     session.todos = state.todoStore.items;
     SessionStore.save(session);
 
+    if (result.blocked) {
+      console.log(chalk.red(`\n[circuit breaker] ${result.tripReason}\n`));
+    }
     console.log(`\n${chalk.green("agentforge")} ${result.text}\n`);
+    if (result.toolCallCount > 0) {
+      console.log(
+        chalk.gray(
+          `  tools: ${result.toolCallCount}  ·  phases: ${result.phaseHistory.length}`,
+        ),
+      );
+    }
+    if (result.graph) {
+      const nodes = Object.values(result.graph.nodes) as { status: string }[];
+      const done = nodes.filter((n) => n.status === "done").length;
+      const blockedN = nodes.filter(
+        (n) => n.status === "blocked" || n.status === "failed",
+      ).length;
+      console.log(
+        chalk.gray(
+          `  graph: ${nodes.length} nodes · done=${done} blocked=${blockedN} · ${result.graph.status}`,
+        ),
+      );
+    }
   } catch (err) {
     console.log(chalk.red(`\nError: ${(err as Error).message}\n`));
   }
@@ -181,12 +286,28 @@ async function handleUserMessage(state: ReplState, input: string): Promise<void>
 
 function buildSystemPrompt(state: ReplState): string {
   const memoryBlock = state.memory.buildCombinedMemory();
-  const rules = state.settings.rules.length ? `\n\nProject rules:\n- ${state.settings.rules.join("\n- ")}` : "";
-  return (
-    "You are AgentForge, an open-source terminal AI coding agent. You read code, plan, write code, and run commands to help the developer. Be precise and concise." +
-    (memoryBlock ? `\n\n${memoryBlock}` : "") +
-    rules
-  );
+  const rules = state.settings.rules.length
+    ? `Project rules:\n- ${state.settings.rules.join("\n- ")}`
+    : "";
+  const toolNames = state.tools
+    .list()
+    .map((t) => `- ${t.name}: ${t.description?.slice(0, 80) ?? ""}`)
+    .join("\n");
+  const mcpIds = [
+    ...(state.settings.mcpCatalogEnabled ?? []),
+    ...Object.keys(state.settings.mcpServers ?? {}),
+  ];
+  return compileSystemStack({
+    toolsSummary: toolNames || "(built-in tools)",
+    mcpSkillsSummary: mcpIds.length
+      ? mcpIds.map((id) => `- ${id}`).join("\n")
+      : "(none connected — enable via settings.mcpCatalogEnabled)",
+    subagentsSummary:
+      "explorer, researcher, architect, coder, frontend, backend, reviewer, tester, devops, orchestrator",
+    projectMemory: [memoryBlock, rules].filter(Boolean).join("\n\n"),
+    sessionState: `Session ${state.session.id} · mode ${state.agentLoop.getMode()}`,
+    mode: state.agentLoop.getMode(),
+  });
 }
 
 function toggleMode(state: ReplState): void {
@@ -199,12 +320,22 @@ function toggleMode(state: ReplState): void {
 
 function printModeHint(state: ReplState): void {
   const mode = state.agentLoop.getMode();
-  const label = mode === "plan" ? chalk.yellow("PLAN MODE (read-only)") : chalk.green("AGENT MODE (executes)");
-  console.log(chalk.gray(`Mode: ${label}  ·  type "tab" to toggle  ·  "!<cmd>" for bash mode  ·  /help for commands`));
+  const label =
+    mode === "plan"
+      ? chalk.yellow("PLAN MODE (read-only)")
+      : chalk.green("AGENT MODE (executes)");
+  console.log(
+    chalk.gray(
+      `Mode: ${label}  ·  type "tab" to toggle  ·  "!<cmd>" for bash mode  ·  /help for commands`,
+    ),
+  );
 }
 
 function promptFor(state: ReplState): string {
-  const mode = state.agentLoop.getMode() === "plan" ? chalk.yellow("plan") : chalk.green("agent");
+  const mode =
+    state.agentLoop.getMode() === "plan"
+      ? chalk.yellow("plan")
+      : chalk.green("agent");
   return `${chalk.bold("agentforge")} [${mode}] > `;
 }
 
